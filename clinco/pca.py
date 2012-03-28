@@ -63,9 +63,12 @@ def read_clinical(fclinical):
     read the clinical data and try to guess the types
     """
     import pandas as pa
+    header = open(fclinical).readline().rstrip("\r\n").split("\t")
+    conv = dict((col, date_parse) for col in header if "date" in col or \
+                            col == "passed_qc")
     try:
-        return pa.read_table(fclinical, converters={"passed_qc": date_parse})
-    except KeyError:
+        return pa.read_table(fclinical, converters=conv)
+    except:
         return pa.read_table(fclinical)
 
 def _clinical_to_ys(clinical1):
