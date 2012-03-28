@@ -39,11 +39,16 @@ def readX(fX, n=1):
     X_headers = fhX.next()
 
     ids, X = [], []
+    nan = float('nan')
+    nan = 10
     for toks in fhX:
         ids.append(toks[0])
-        X.append(np.array(
-            map(float, toks[n:])
-        ))
+        try:
+            vals = map(float, toks[n:])
+        except ValueError:
+            vals = [float(t) if not t in ("NA", "na") else nan for t in
+                                                                toks[n:]]
+        X.append(np.array(vals))
     return X_headers, np.array(ids), np.array(X)
 
 import dateutil
@@ -140,7 +145,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
         plt.xlabel('component 1')
         plt.ylabel('component 2')
         #plt.scatter(xs, ys, c=color, s=6, label=yclass)
-        if label_key is not None:
+        if label_key is not None and i == 1:
             labels = clinical[label_key][p]
             for xx, yy, label in izip(xs, ys, labels):
                 plt.text(xx, yy, label, color=color, fontsize=6, multialignment='right')
@@ -237,7 +242,7 @@ def main():
     p.add_argument("-f", dest="fig_name", help="path to save figure")
 
     args = p.parse_args()
-    if (None in (args.X, args.clinical) or args.fig_name is None):
+    if (None in (args.X, args.clinical, args.key, args.fig_name)):
         sys.exit(not p.print_help())
 
     run(args.X, args.clinical, args.key.rstrip().split(","), args.fig_name,
