@@ -51,6 +51,7 @@ individual_03	20	F	12-03-2012	Denver
 ```
 
 === numerical data format === 
+
 The numerical data is expected to have n_samples * (n_features + 1).
 Where each feature is a probe or a measurement. The first column is
 expected to be an ID that maps that sample back to the clinical data.
@@ -83,6 +84,7 @@ first *10* principal components.
 The plot will vary the colors by gender.
 
 The text output looks like this:
+
 ```
 component    clinical_var   n   R   anova_groups    p_value
 1            gender         99  na  2-groups        1.7e-55
