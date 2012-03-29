@@ -241,7 +241,8 @@ def main():
     p.add_argument("-l", dest="label",
         help="optional column header(s) to label points")
     p.add_argument("-m", dest="method", choices=CLASSES.keys(),
-                 help="method to use for transformation.", default="PCA")
+                 help="method to use for transformation.",
+                 default="RandomizedPCA")
     p.add_argument("-f", dest="fig_name", help="path to save figure")
 
     args = p.parse_args()
