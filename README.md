@@ -33,7 +33,7 @@ clinco
 Data Format
 -----------
 
-=== clinical data format
+=== clinical data format ===
 
 Clinco expects that your clinical-information is in tab-delimited
 format with a header
@@ -50,8 +50,7 @@ individual_02	29	F	22-11-2011	Boston
 individual_03	20	F	12-03-2012	Denver
 ```
 
-=== numerical data format
-
+=== numerical data format === 
 The numerical data is expected to have n_samples * (n_features + 1).
 Where each feature is a probe or a measurement. The first column is
 expected to be an ID that maps that sample back to the clinical data.
