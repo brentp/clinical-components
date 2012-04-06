@@ -31,7 +31,7 @@ def shannon(explained_variance_ratio):
     evr = evr[evr > 0]
     return -1.0 / np.log(L) * (evr * np.log(evr)).sum()
 
-def readX(fX, n=1):
+def readX(fX, n=1, nan_value=0):
     """
     n == 1 means to skip first column because it's the ID
     """
@@ -39,15 +39,14 @@ def readX(fX, n=1):
     X_headers = fhX.next()
 
     ids, X = [], []
-    nan = float('nan')
-    nan = 10
+    #nan = float('nan')
     for toks in fhX:
         ids.append(toks[0])
         try:
             vals = map(float, toks[n:])
         except ValueError:
-            vals = [float(t) if not t in ("NA", "na") else nan for t in
-                                                                toks[n:]]
+            vals = [float(t) if not t in ("NA", "na") else nan_value 
+                       for t in toks[n:]]
         X.append(np.array(vals))
     return X_headers, np.array(ids), np.array(X)
 
@@ -75,10 +74,10 @@ def _clinical_to_ys(clinical1):
     classes = [x for x in sorted(np.unique(np.array(clinical1)))] # if not np.isnan(x)]
     return classes, np.array([classes.index(c) if c in classes else np.nan for c in clinical1]) # if not np.isnan(c)])
 
-def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
+def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0, label_key=None):
 
     clinical = read_clinical(fclinical)
-    X_headers, X_ids, X = readX(fX)
+    X_headers, X_ids, X = readX(fX, nan_value=nan_value)
 
     ci = map(str, list(clinical[clinical.columns[0]]))
     X_out = [xi for xi in X_ids if not xi in ci]
@@ -89,7 +88,6 @@ def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
                 % (len(X_out))
     X_ids = np.array([xi for xi in X_ids if xi in ci])
     clinical = clinical.irow([ci.index(xi) for xi in X_ids if not xi in X_out])
-    #print clinical
     assert all(X_id == str(c_id) for X_id, c_id in
                zip(X_ids, clinical[clinical.columns[0]])), "IDS don't match!"
     if False: # example filtering
@@ -117,14 +115,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
         clf = klass(20).fit(X)
     X_r = clf.fit_transform(X)
 
-    #U, S, V = clf._fit(X)
-    #print U.shape, S.shape, V.shape
-    # Which to use?
     components = X_r
-    #print clf.components_.T.shape
-    #components = V.T
-    #print components.shape, clinical.shape
-
 
     for i, (color, yclass) in list(enumerate(zip(cycle("rgbckym"), yclasses))):
         try:
@@ -142,9 +133,8 @@ def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
         ys = components[p, 1]
         y2s = components[p, 2]
 
-
         plt.subplot(2, 1, 1)
-        plt.scatter(xs, ys, c=color, edgecolor=color, s=12, label=yclass)
+        plt.scatter(xs, ys, c=color, edgecolor=color, s=12, label=str(yclass))
         plt.xlabel('component 1')
         plt.ylabel('component 2')
         #plt.scatter(xs, ys, c=color, s=6, label=yclass)
@@ -154,7 +144,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
                 plt.text(xx, yy, label, color=color, fontsize=6, multialignment='right')
 
         plt.subplot(2, 2, 3)
-        plt.scatter(xs, y2s, c=color, edgecolor=color, s=12, label=yclass)
+        plt.scatter(xs, y2s, c=color, edgecolor=color, s=12, label=str(yclass))
 
     plt.subplot(2, 1, 1)
     plt.title(header_key)
@@ -191,8 +181,11 @@ def run(fX, fclinical, header_keys, fig_name, klass, label_key=None):
 
 
 def print_correlations(components, clinical):
-    print "component_vector\tclinical_variable\tn\tR\tanova_groups\tp_value"
-    for i in range(min(5, components.shape[1])):
+    n_tests = components.shape[1] * (len(clinical.columns) - 1)
+    print >>sys.stderr, "n-tests:", n_tests
+
+    print "pc_num\tclinical_variable\tn\tR\tanova_groups\tp_value\tbonf_p"
+    for i in range(min(10, components.shape[1])):
         j = i + 1
         for column in clinical.columns[1:]:
             clin = clinical[column]
@@ -216,18 +209,16 @@ def print_correlations(components, clinical):
             else:
                 if hasattr(x[0], "date"):
                     x = np.array(x, dtype=np.datetime64).astype(int)
-                    if i == 0:
-                        print >>open('data.txt', 'w'), "\n".join("%i\t%.3f" % (xx, yy) for xx, yy in zip(x, y))
                 slope, intercept, r_value, p_value, std_err = linregress(x, y)
                 R = "%.3f" % r_value
                 aov = "na"
 
             if p_value > 0.1 or np.isnan(p_value): continue
+            adj_p = "%.3g" % min(1, (p_value * n_tests))
             p_value = "%.3g" % p_value
             n = len(y)
-            print "%(j)i\t%(column)s\t%(n)i\t%(R)s\t%(aov)s\t%(p_value)s" % \
+            print "%(j)i\t%(column)s\t%(n)i\t%(R)s\t%(aov)s\t%(p_value)s\t%(adj_p)s" % \
                 locals()
-
 
 
 def main():
@@ -244,13 +235,15 @@ def main():
                  help="method to use for transformation.",
                  default="RandomizedPCA")
     p.add_argument("-f", dest="fig_name", help="path to save figure")
+    p.add_argument("-n", dest="nan", help="value to use instead of nan",
+            default=0.0, type=float)
 
     args = p.parse_args()
     if (None in (args.X, args.clinical, args.key, args.fig_name)):
         sys.exit(not p.print_help())
 
     run(args.X, args.clinical, args.key.rstrip().split(","), args.fig_name,
-        CLASSES[args.method], args.label)
+        CLASSES[args.method], args.nan, args.label)
 
 if __name__ == "__main__":
     import doctest
