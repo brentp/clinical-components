@@ -5,6 +5,9 @@ import matplotlib
 from toolshed import reader
 import numpy as np
 matplotlib.use('Agg')
+
+from dateutil.parser import parse as date_parse
+
 from matplotlib import pyplot as plt
 
 from sklearn.decomposition import PCA, RandomizedPCA, ProbabilisticPCA, \
@@ -31,12 +34,12 @@ def shannon(explained_variance_ratio):
     evr = evr[evr > 0]
     return -1.0 / np.log(L) * (evr * np.log(evr)).sum()
 
-def readX(fX, n=1, nan_value=0):
+def readX(fX, transpose, n=1, nan_value=0):
     """
     n == 1 means to skip first column because it's the ID
     """
     fhX = reader(fX, header=False)
-    X_headers = fhX.next()
+    X_probes = fhX.next()
 
     ids, X = [], []
     #nan = float('nan')
@@ -48,12 +51,15 @@ def readX(fX, n=1, nan_value=0):
             vals = [float(t) if not t in ("NA", "na") else nan_value 
                        for t in toks[n:]]
         X.append(np.array(vals))
-    return X_headers, np.array(ids), np.array(X)
+    X = np.array(X)
+    if transpose:
+        return ids, np.array(X_probes[1:]), X.T
+    else:
+        return X_probes, np.array(ids), X
 
-import dateutil
-def date_parse(adate):
+def try_date_parse(adate):
     try:
-        return dateutil.parser.parse(adate)
+        return date_parse(adate)
     except ValueError:
         return np.nan
 
@@ -63,21 +69,23 @@ def read_clinical(fclinical):
     """
     import pandas as pa
     header = open(fclinical).readline().rstrip("\r\n").split("\t")
-    conv = dict((col, date_parse) for col in header if "date" in col or \
-                            col == "passed_qc")
+    conv = dict((x, try_date_parse) for x in header if "date" in x or
+            x == "passed_qc")
+
     try:
-        return pa.read_table(fclinical, converters=conv)
+        return pa.read_table(fclinical, converters=conv, parse_dates=True)
     except:
-        return pa.read_table(fclinical)
+        return pa.read_table(fclinical, parse_dates=True)
 
 def _clinical_to_ys(clinical1):
     classes = [x for x in sorted(np.unique(np.array(clinical1)))] # if not np.isnan(x)]
     return classes, np.array([classes.index(c) if c in classes else np.nan for c in clinical1]) # if not np.isnan(c)])
 
-def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0, label_key=None):
+def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
+        label_key=None, transpose=False):
 
     clinical = read_clinical(fclinical)
-    X_headers, X_ids, X = readX(fX, nan_value=nan_value)
+    X_headers, X_ids, X = readX(fX, transpose, nan_value=nan_value)
 
     ci = map(str, list(clinical[clinical.columns[0]]))
     X_out = [xi for xi in X_ids if not xi in ci]
@@ -138,7 +146,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0, label_key=None
         plt.xlabel('component 1')
         plt.ylabel('component 2')
         #plt.scatter(xs, ys, c=color, s=6, label=yclass)
-        if label_key is not None and i == 1:
+        if label_key is not None: # and i == 1:
             labels = clinical[label_key][p]
             for xx, yy, label in izip(xs, ys, labels):
                 plt.text(xx, yy, label, color=color, fontsize=6, multialignment='right')
@@ -226,6 +234,8 @@ def main():
                    formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-X", dest="X", help="numerical data file first column is ID"
               " first row is header")
+    p.add_argument("-t", dest="transpose", action="store_true", default=False,
+        help="data is in rows==probes, columns==samples")
     p.add_argument("-c", dest="clinical", help="clinical data file. first "
               "column matches that in X")
     p.add_argument("-k", dest="key", help="column header(s) to separate classes")
@@ -243,7 +253,7 @@ def main():
         sys.exit(not p.print_help())
 
     run(args.X, args.clinical, args.key.rstrip().split(","), args.fig_name,
-        CLASSES[args.method], args.nan, args.label)
+        CLASSES[args.method], args.nan, args.label, args.transpose)
 
 if __name__ == "__main__":
     import doctest
