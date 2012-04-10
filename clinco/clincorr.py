@@ -50,7 +50,7 @@ def compare(cola, colb):
     elif acat == False and bcat == True:
         d.update(_group_anova(a, b))
 
-    elif acat == False and bcat == True:
+    elif acat == True and bcat == False:
         d.update(_group_anova(b, a))
 
     # both categorical...
