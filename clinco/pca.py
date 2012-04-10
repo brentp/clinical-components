@@ -72,10 +72,12 @@ def read_clinical(fclinical):
     conv = dict((x, try_date_parse) for x in header if "date" in x or
             x == "passed_qc")
 
+    na_values = ("NA", "na", "NaN", "nan")
     try:
-        return pa.read_table(fclinical, converters=conv, parse_dates=True)
+        return pa.read_table(fclinical, converters=conv, parse_dates=True,
+                na_values=na_values)
     except:
-        return pa.read_table(fclinical, parse_dates=True)
+        return pa.read_table(fclinical, parse_dates=True, na_values=na_values)
 
 def _clinical_to_ys(clinical1):
     classes = [x for x in sorted(np.unique(np.array(clinical1)))] # if not np.isnan(x)]

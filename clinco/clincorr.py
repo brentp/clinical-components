@@ -7,6 +7,8 @@ import collections
 
 import numpy as np
 from scipy.stats import linregress, f_oneway
+import pandas as pa
+from scipy.stats import chi2_contingency
 
 from pca import read_clinical
 
@@ -24,7 +26,7 @@ def is_categorical(column):
 def _group_anova(acol, bcol):
     agroups = []
     for bgroup in np.unique(bcol):
-        agroups.append(a[bcol == bgroup])
+        agroups.append(acol[bcol == bgroup])
     agroups = [ag for ag in agroups if len(ag) > 0]
     f, p_value = f_oneway(*agroups)
     return {'anova_groups': len(agroups), 'p': p_value}
@@ -36,6 +38,7 @@ def compare(cola, colb):
     a = cola[cola.notnull() & colb.notnull()]
     b = colb[cola.notnull() & colb.notnull()]
     d['n'] = len(a)
+    if d['n'] == 0: return d
 
     # both numerical
     if acat == bcat == False:
@@ -52,14 +55,25 @@ def compare(cola, colb):
 
     # both categorical...
     else:
-        
+        dsub = pa.DataFrame({a.name:a, b.name: b})
+        summ = np.array(dsub.groupby(by=[a.name, b.name]).size().unstack(b.name))
+        summ[np.isnan(summ)] = 0
+        chi2, p, dof, ex = chi2_contingency(summ)    
+        d['anova_groups'] = 'chi-sq'
+        d['p'] = p
 
     return d
 
 def run(clin):
     corr = collections.defaultdict(dict)
     for ic in clin.columns:
-        print ic, is_categorical(clin[ic])
+        for jc in clin.columns:
+            if ic == jc: continue
+            if (jc, ic) in corr: continue
+            d = compare(clin[ic], clin[jc])
+            corr[ic, jc] = d
+            if d['p'] != 'na' and d['p'] < 0.01:
+                print ic, jc, d
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
