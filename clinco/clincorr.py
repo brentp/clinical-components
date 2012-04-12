@@ -12,14 +12,22 @@ from scipy.stats import chi2_contingency
 from pca import read_clinical
 
 def is_categorical(column):
+
+    try:
+        if np.allclose(np.array(column).astype(int), column):
+            column = column.astype(int)
+    except (ValueError, TypeError):
+        pass
+
     if np.issubdtype(column.dtype, np.floating):
         return False
     if np.issubdtype(column.dtype, np.int):
-        return len(np.unique(column)) < 6
+        return len(np.unique(column)) < 4
 
     if column.dtype == object:
         return True
-    1/0
+
+    raise Exception("%s not handled" % column.dtype)
 
 # bcol is the group.
 def _group_anova(acol, bcol):
@@ -35,11 +43,17 @@ def _group_anova(acol, bcol):
     return {'anova_groups': len(agroups), 'p': p_value}
 
 def compare(cola, colb):
-    d = dict.fromkeys("correlation p n anova_groups".split(), "na")
-    acat, bcat = is_categorical(cola), is_categorical(colb)
+    d = dict.fromkeys("correlation p n anova_groups atype btype".split(), "na")
 
     a = cola[cola.notnull() & colb.notnull()]
     b = colb[cola.notnull() & colb.notnull()]
+
+    acat, bcat = is_categorical(a), is_categorical(b)
+    l = ['numeric', 'categorical']
+    d['atype'] = l[int(acat)]
+    d['btype'] = l[int(bcat)]
+
+
     d['n'] = len(a)
     if d['n'] == 0: return d
 
@@ -68,32 +82,36 @@ def compare(cola, colb):
     return d
 
 
-def run(clin, cutoff=0.05):
-    tmpl = "%(ic)s\t%(jc)s\t%(n)s\t%(correlation)s\t%(anova_groups)s\t%(p)s"
+def run(clin, col_name=None, cutoff=0.05):
+    tmpl = "%(acol)s\t%(bcol)s\t%(n)s\t%(correlation)s\t%(anova_groups)s\t%(p)s\t%(atype)s\t%(btype)s"
     print "#" + tmpl.replace("%(", "").replace(")s", "")
-    for i, ic in enumerate(clin.columns):
-        for j, jc in enumerate(clin.columns[i + 1:]):
-            d = compare(clin[ic], clin[jc])
+    for i, acol in enumerate(clin.columns):
+        if col_name and acol != col_name: continue
+        for j, bcol in enumerate(clin.columns[0 if col_name else (i + 1):]):
+            if acol == bcol: continue
+            d = compare(clin[acol], clin[bcol])
             # {'p': 0.0012043784307836521, 'anova_groups': 'na', 'n': 467, 'correlation':
             # -0.14938818779760124}
             if d['p'] != 'na' and d['p'] <= cutoff:
                 d['p'] = "%.4g" % d['p']
                 if 'na' != d['correlation']:
                     d['correlation'] = "%.3f" % d['correlation']
-                d['ic'], d['jc'] = ic, jc
+                d['acol'], d['bcol'] = acol, bcol
                 print tmpl % d
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                    formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-c", dest="clinical", help="clinical data file.")
+    p.add_argument("--column",
+            help="do correlations of all variables with this column")
 
     args = p.parse_args()
     if (None in (args.clinical, )):
         sys.exit(not p.print_help())
 
     clin = read_clinical(args.clinical)
-    run(clin)
+    run(clin, args.column)
 
 
 if __name__ == "__main__":
