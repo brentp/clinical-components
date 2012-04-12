@@ -1,9 +1,8 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
-print sys.path[0]
+from collections import Counter
 import argparse
-import collections
 
 import numpy as np
 from scipy.stats import linregress, f_oneway
@@ -28,7 +27,11 @@ def _group_anova(acol, bcol):
     for bgroup in np.unique(bcol):
         agroups.append(acol[bcol == bgroup])
     agroups = [ag for ag in agroups if len(ag) > 0]
-    f, p_value = f_oneway(*agroups)
+    if Counter([len(ag) for ag in agroups]).most_common(1)[0][0] == 1:
+        # if many bin-sizes of 1, won't get valid results.
+        p_value = 1.0
+    else:
+        f, p_value = f_oneway(*agroups)
     return {'anova_groups': len(agroups), 'p': p_value}
 
 def compare(cola, colb):
@@ -64,16 +67,21 @@ def compare(cola, colb):
 
     return d
 
-def run(clin):
-    corr = collections.defaultdict(dict)
-    for ic in clin.columns:
-        for jc in clin.columns:
-            if ic == jc: continue
-            if (jc, ic) in corr: continue
+
+def run(clin, cutoff=0.05):
+    tmpl = "%(ic)s\t%(jc)s\t%(n)s\t%(correlation)s\t%(anova_groups)s\t%(p)s"
+    print "#" + tmpl.replace("%(", "").replace(")s", "")
+    for i, ic in enumerate(clin.columns):
+        for j, jc in enumerate(clin.columns[i + 1:]):
             d = compare(clin[ic], clin[jc])
-            corr[ic, jc] = d
-            if d['p'] != 'na' and d['p'] < 0.01:
-                print ic, jc, d
+            # {'p': 0.0012043784307836521, 'anova_groups': 'na', 'n': 467, 'correlation':
+            # -0.14938818779760124}
+            if d['p'] != 'na' and d['p'] <= cutoff:
+                d['p'] = "%.4g" % d['p']
+                if 'na' != d['correlation']:
+                    d['correlation'] = "%.3f" % d['correlation']
+                d['ic'], d['jc'] = ic, jc
+                print tmpl % d
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
