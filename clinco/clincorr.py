@@ -29,13 +29,16 @@ def is_categorical(column):
 
     raise Exception("%s not handled" % column.dtype)
 
+def x_most_frequent(counts, x):
+    return Counter(counts).most_common(1)[0][0] == x
+
 # bcol is the group.
 def _group_anova(acol, bcol):
     agroups = []
     for bgroup in np.unique(bcol):
         agroups.append(acol[bcol == bgroup])
     agroups = [ag for ag in agroups if len(ag) > 0]
-    if Counter([len(ag) for ag in agroups]).most_common(1)[0][0] == 1:
+    if x_most_frequent([len(ag) for ag in agroups], 1):
         # if many bin-sizes of 1, won't get valid results.
         p_value = 1.0
     else:
@@ -76,8 +79,10 @@ def compare(cola, colb):
         summ = np.array(dsub.groupby(by=[a.name, b.name]).size().unstack(b.name))
         summ[np.isnan(summ)] = 0
         chi2, p, dof, ex = chi2_contingency(summ)    
-        d['anova_groups'] = 'chi-sq'
+        d['anova_groups'] = 'chi-sq:' + ",".join(map(str, summ.shape))
         d['p'] = p
+        if x_most_frequent(summ.flat, 0):
+            d['p'] = 1
 
     return d
 
