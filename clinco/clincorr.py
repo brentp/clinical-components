@@ -12,6 +12,11 @@ from scipy.stats import chi2_contingency
 from pca import read_clinical
 
 def is_categorical(column):
+    """
+    try to guess if a column is numeric or categorical
+    e.g. if the column only has values 0 and 1, assume
+    categorical
+    """
 
     try:
         if np.allclose(np.array(column).astype(int), column):
@@ -22,7 +27,14 @@ def is_categorical(column):
     if np.issubdtype(column.dtype, np.floating):
         return False
     if np.issubdtype(column.dtype, np.int):
-        return len(np.unique(column)) < 4
+        if column.name.startswith("num"):
+            return False
+        # contains all integer values from min to max and min is 0 or 1 then
+        # categorical
+        if np.min(column) in (0, 1) \
+            and len(np.setdiff1d(np.arange(min(column), max(column) + 1), column)) < 2:
+            return True
+        return len(np.unique(column)) < 3
 
     if column.dtype == object:
         return True
@@ -48,10 +60,10 @@ def _group_anova(acol, bcol):
 def compare(cola, colb):
     d = dict.fromkeys("correlation p n anova_groups atype btype".split(), "na")
 
+    acat, bcat = is_categorical(cola[cola.notnull()]), is_categorical(colb[colb.notnull()])
     a = cola[cola.notnull() & colb.notnull()]
     b = colb[cola.notnull() & colb.notnull()]
 
-    acat, bcat = is_categorical(a), is_categorical(b)
     l = ['numeric', 'categorical']
     d['atype'] = l[int(acat)]
     d['btype'] = l[int(bcat)]
