@@ -63,19 +63,21 @@ def try_date_parse(adate):
     except ValueError:
         return np.nan
 
-def read_clinical(fclinical):
+def read_clinical(fclinical, na_values=None):
     """
     read the clinical data and try to guess the types
     """
     import pandas as pa
+    if na_values is None:
+        na_values = []
+
     header = open(fclinical).readline().rstrip("\r\n").split("\t")
     conv = dict((x, try_date_parse) for x in header if "date" in x or
             x == "passed_qc")
-
-    na_values = ("NA", "na", "NaN", "nan")
+    na_values.extend(("NA", "na", "NaN", "nan"))
     try:
         return pa.read_table(fclinical, converters=conv, parse_dates=True,
-                na_values=na_values)
+                                na_values=na_values)
     except:
         return pa.read_table(fclinical, parse_dates=True, na_values=na_values)
 

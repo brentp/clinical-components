@@ -103,6 +103,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__,
                    formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-c", dest="clinical", help="clinical data file.")
+    p.add_argument("--na", help="addition comma-separated tokens to count as na",
+            default="")
     p.add_argument("--column",
             help="do correlations of all variables with this column")
 
@@ -110,7 +112,7 @@ def main():
     if (None in (args.clinical, )):
         sys.exit(not p.print_help())
 
-    clin = read_clinical(args.clinical)
+    clin = read_clinical(args.clinical, args.na.split(","))
     run(clin, args.column)
 
 
