@@ -53,9 +53,9 @@ def readX(fX, transpose, n=1, nan_value=0):
         X.append(np.array(vals))
     X = np.array(X)
     if transpose:
-        return ids, np.array(X_probes[1:]), X.T
+        return ids, np.array(X_probes[1:]), X
     else:
-        return X_probes, np.array(ids), X
+        return X_probes, np.array(ids), X.T
 
 def try_date_parse(adate):
     try:
@@ -90,6 +90,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
     clinical = read_clinical(fclinical)
     X_headers, X_ids, X = readX(fX, transpose, nan_value=nan_value)
+    print >>sys.stderr, X.shape, X_ids[:10]
 
     ci = map(str, list(clinical[clinical.columns[0]]))
     X_out = [xi for xi in X_ids if not xi in ci]
@@ -117,17 +118,18 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     header_key = header_keys[0]
     yclasses, y = _clinical_to_ys(clinical[header_key])
 
-    assert X.shape[0] == y.shape[0], (X.shape, y.shape)
+    assert X.shape[1] == y.shape[0], (X.shape, y.shape)
 
     if klass.__name__ == "KernelPCA":
         clf = klass(20, kernel="linear", gamma=3./X.shape[0]).fit(X) #3./X.shape[0]).fit(X)
     elif not ("PCA" in klass.__name__ or "LDA" in klass.__name__):
         clf = klass(6, out_dim=10).fit(X, y)
     else:
+        print >>sys.stderr, X.shape
         clf = klass(20).fit(X)
-    X_r = clf.fit_transform(X)
+    #`X_r = clf.transform(X)
 
-    components = X_r
+    components = clf.components_.T
 
     for i, (color, yclass) in list(enumerate(zip(cycle("rgbckym"), yclasses))):
         try:
