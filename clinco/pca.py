@@ -37,9 +37,10 @@ def shannon(explained_variance_ratio):
 def readX(fX, transpose, n=1, nan_value=0):
     """
     n == 1 means to skip first column because it's the ID
+    returns ids, probe_names, X
     """
     fhX = reader(fX, header=False)
-    X_probes = fhX.next()
+    X_probes = fhX.next()[1:]
 
     ids, X = [], []
     #nan = float('nan')
@@ -53,9 +54,9 @@ def readX(fX, transpose, n=1, nan_value=0):
         X.append(np.array(vals))
     X = np.array(X)
     if transpose:
-        return ids, np.array(X_probes[1:]), X
-    else:
         return X_probes, np.array(ids), X.T
+    else:
+        return np.array(ids), X_probes, X
 
 def try_date_parse(adate):
     try:
@@ -89,16 +90,19 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
         label_key=None, transpose=False):
 
     clinical = read_clinical(fclinical)
-    X_headers, X_ids, X = readX(fX, transpose, nan_value=nan_value)
-    print >>sys.stderr, X.shape, X_ids[:10]
+    X_ids, X_probes, X = readX(fX, transpose, nan_value=nan_value)
+
+    assert X.shape[0] == len(X_ids), (X.shape, len(X_ids), len(X_probes))
+
+    #assert len(X_ids) == clinical.shape[0], X_ids[:10]
 
     ci = map(str, list(clinical[clinical.columns[0]]))
     X_out = [xi for xi in X_ids if not xi in ci]
     if X_out:
         X = X[[i for i, xi in enumerate(X_ids) if xi in ci]]
-
         print >>sys.stderr, "removing %i rows in X but not in clinical" \
                 % (len(X_out))
+
     X_ids = np.array([xi for xi in X_ids if xi in ci])
     clinical = clinical.irow([ci.index(xi) for xi in X_ids if not xi in X_out])
     assert all(X_id == str(c_id) for X_id, c_id in
@@ -118,18 +122,18 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     header_key = header_keys[0]
     yclasses, y = _clinical_to_ys(clinical[header_key])
 
-    assert X.shape[1] == y.shape[0], (X.shape, y.shape)
+    assert X.shape[0] == y.shape[0], (X.shape, y.shape)
 
     if klass.__name__ == "KernelPCA":
         clf = klass(20, kernel="linear", gamma=3./X.shape[0]).fit(X) #3./X.shape[0]).fit(X)
     elif not ("PCA" in klass.__name__ or "LDA" in klass.__name__):
         clf = klass(6, out_dim=10).fit(X, y)
     else:
-        print >>sys.stderr, X.shape
-        clf = klass(20).fit(X)
+        clf = klass(20).fit(X.T)
     #`X_r = clf.transform(X)
 
     components = clf.components_.T
+    assert components.shape[0] == X.shape[0] == clinical.shape[0]
 
     for i, (color, yclass) in list(enumerate(zip(cycle("rgbckym"), yclasses))):
         try:
@@ -146,6 +150,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
         xs = components[p, 0]
         ys = components[p, 1]
         y2s = components[p, 2]
+        assert xs.shape[0] <= len(clinical)
 
         plt.subplot(2, 1, 1)
         plt.scatter(xs, ys, c=color, edgecolor=color, s=12, label=str(yclass))
@@ -195,7 +200,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
 
 def print_correlations(components, clinical):
-    n_tests = components.shape[1] * (len(clinical.columns) - 1)
+    n_tests = min(10, components.shape[1]) * (len(clinical.columns) - 1)
     print >>sys.stderr, "n-tests:", n_tests
 
     print "pc_num\tclinical_variable\tn\tR\tanova_groups\tp_value\tbonf_p"
