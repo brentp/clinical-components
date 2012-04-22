@@ -55,6 +55,7 @@ def readX(fX, transpose, n=1, nan_value=0):
     X = np.array(X)
     if transpose:
         return X_probes, np.array(ids), X
+        #return np.array(ids), X_probes, X.T
     else:
         return np.array(ids), X_probes, X.T
 
@@ -91,20 +92,21 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
     clinical = read_clinical(fclinical)
     X_ids, X_probes, X = readX(fX, transpose, nan_value=nan_value)
-
     assert X.shape[1] == len(X_ids), (X.shape, len(X_ids), len(X_probes))
-
-    #assert len(X_ids) == clinical.shape[0], X_ids[:10]
 
     ci = map(str, list(clinical[clinical.columns[0]]))
     X_out = [xi for xi in X_ids if not xi in ci]
     if X_out:
-        X = X[[i for i, xi in enumerate(X_ids) if xi in ci]]
+        X = X[:, [i for i, xi in enumerate(X_ids) if xi in ci]]
         print >>sys.stderr, "removing %i rows in X but not in clinical" \
                 % (len(X_out))
 
+    print >>sys.stderr, X.shape, "after removed"
+    X = X.T
     X_ids = np.array([xi for xi in X_ids if xi in ci])
     clinical = clinical.irow([ci.index(xi) for xi in X_ids if not xi in X_out])
+    print >>sys.stderr, clinical.shape, "clinical after removed"
+
     assert all(X_id == str(c_id) for X_id, c_id in
                zip(X_ids, clinical[clinical.columns[0]])), "IDS don't match!"
     if False: # example filtering
@@ -122,22 +124,25 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     header_key = header_keys[0]
     yclasses, y = _clinical_to_ys(clinical[header_key])
 
-    assert X.shape[1] == y.shape[0], (X.shape, y.shape)
+    #assert X.shape[1] == y.shape[0], (X.shape, y.shape)
 
     if klass.__name__ == "KernelPCA":
         clf = klass(20, kernel="linear", gamma=3./X.shape[0]).fit(X) #3./X.shape[0]).fit(X)
     elif not ("PCA" in klass.__name__ or "LDA" in klass.__name__):
         clf = klass(6, out_dim=10).fit(X, y)
     else:
-        clf = klass(20).fit(X.T)
-    X_r = clf.transform(X.T)
+        clf = klass(20).fit(X)
+    X_r = clf.transform(X)
+    print >>sys.stderr, "X_r", X_r.shape
 
-    components = clf.components_.T
-    print X_r.shape
     components = X_r
+    assert len(clf.explained_variance_ratio_ == clinical.shape[0])
+    #if components.shape[0] != clinical.shape[0]:
+    #    components = clf.components_.T
 
     #print components.shape , X.shape[0] , clinical.shape[0]
-    assert components.shape[0] == clinical.shape[0]
+    assert components.shape[0] == clinical.shape[0], (components.shape,
+            clinical.shape)
 
     for i, (color, yclass) in list(enumerate(zip(cycle("rgbckym"), yclasses))):
         try:
