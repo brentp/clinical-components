@@ -157,7 +157,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
         plt.xlabel('component 1')
         plt.ylabel('component 2')
         #plt.scatter(xs, ys, c=color, s=6, label=yclass)
-        if label_key is not None: # and i == 1:
+        if label_key is not None and i == 0:
             labels = clinical[label_key][p]
             for xx, yy, label in izip(xs, ys, labels):
                 plt.text(xx, yy, label, color=color, fontsize=6, multialignment='right')
@@ -175,7 +175,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     plt.ylabel('component 3')
     plt.setp(leg_txt, fontsize=8)
 
-    print_correlations(components, clinical)
+    print_correlations(components, clinical, clf.explained_variance_ratio_)
 
 
     if hasattr(clf, "explained_variance_ratio_"):
@@ -199,11 +199,11 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     plt.savefig('i.png')
 
 
-def print_correlations(components, clinical):
+def print_correlations(components, clinical, evr):
     n_tests = min(10, components.shape[1]) * (len(clinical.columns) - 1)
     print >>sys.stderr, "n-tests:", n_tests
 
-    print "pc_num\tclinical_variable\tn\tR\tanova_groups\tp_value\tbonf_p"
+    print "pc_num\tvariance_explained\tclinical_variable\tn\tR\tanova_groups\tp_value\tbonf_p"
     for i in range(min(10, components.shape[1])):
         j = i + 1
         for column in clinical.columns[1:]:
@@ -236,7 +236,8 @@ def print_correlations(components, clinical):
             adj_p = "%.3g" % min(1, (p_value * n_tests))
             p_value = "%.3g" % p_value
             n = len(y)
-            print "%(j)i\t%(column)s\t%(n)i\t%(R)s\t%(aov)s\t%(p_value)s\t%(adj_p)s" % \
+            evr_j = "%.3f" % evr[i]
+            print "%(j)i\t%(evr_j)s\t%(column)s\t%(n)i\t%(R)s\t%(aov)s\t%(p_value)s\t%(adj_p)s" % \
                 locals()
 
 
