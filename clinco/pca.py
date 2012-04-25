@@ -4,6 +4,7 @@ from itertools import cycle, izip
 import matplotlib
 from toolshed import reader
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 matplotlib.use('Agg')
 
 from dateutil.parser import parse as date_parse
@@ -144,6 +145,8 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     assert components.shape[0] == clinical.shape[0], (components.shape,
             clinical.shape)
 
+    ax = plt.subplot(111, projection='3d')
+    proxies = []
     for i, (color, yclass) in list(enumerate(zip(cycle("rgbckym"), yclasses))):
         try:
             if np.isnan(yclass): continue
@@ -158,48 +161,31 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
         xs = components[p, 0]
         ys = components[p, 1]
-        y2s = components[p, 2]
+        zs = components[p, 2]
         assert xs.shape[0] <= len(clinical)
 
-        plt.subplot(2, 1, 1)
-        plt.scatter(xs, ys, c=color, edgecolor=color, s=12, label=str(yclass))
-        plt.xlabel('component 1')
-        plt.ylabel('component 2')
+        proxies.append(plt.Circle((0, 0), 0.001, fc=color))
+
+        ax.scatter(xs, ys, zs, c=color, edgecolor=color,
+                s=12, label=str(yclass))
+
         #plt.scatter(xs, ys, c=color, s=6, label=yclass)
         if label_key is not None and i == 0:
             labels = clinical[label_key][p]
             for xx, yy, label in izip(xs, ys, labels):
                 plt.text(xx, yy, label, color=color, fontsize=6, multialignment='right')
 
-        plt.subplot(2, 2, 3)
-        plt.scatter(xs, y2s, c=color, edgecolor=color, s=12, label=str(yclass))
+    exr = clf.explained_variance_ratio_
+    labels = [("(%.1f" % (100. * e)) + "%)" for e in exr[:3]]
+    print labels
+    plt.xlabel('component 1 ' + labels[0])
+    plt.ylabel('component 2 ' + labels[1])
+    ax.set_zlabel('component 3 ' + labels[2])
 
-    plt.subplot(2, 1, 1)
     plt.title(header_key)
-    leg = plt.legend(scatterpoints=1, loc='lower right')
-    leg.get_frame().set_alpha(0.5)
-    leg_txt = plt.gca().get_legend().get_texts()
-    plt.subplot(2, 2, 3)
-    plt.xlabel('component 2')
-    plt.ylabel('component 3')
-    plt.setp(leg_txt, fontsize=8)
+    leg = plt.legend(proxies, yclasses, scatterpoints=1, loc='upper left')
 
     print_correlations(components, clinical, clf.explained_variance_ratio_)
-
-
-    if hasattr(clf, "explained_variance_ratio_"):
-        ax = plt.subplot(2, 2, 4)
-
-        print >>sys.stderr, map(float, clf.explained_variance_ratio_[:9])
-        idx = min(50,  len(clf.explained_variance_ratio_))
-        plt.bar(np.arange(idx) + 0.5, 100. * clf.explained_variance_ratio_[:idx],
-                color=(0.5, 0.5, 0.5),)
-        plt.xlim(0, idx + 1)
-        plt.xlabel('# components')
-        plt.ylabel('% variance explained')
-        plt.text(0.5, 0.9, "entropy: %.2f" % shannon(clf.explained_variance_ratio_),
-                transform=ax.transAxes)
-    #plt.subplots_adjust(0.09, 0.04, 0.94, 0.94, 0.26, 0.26)
 
     plt.savefig(fig_name)
 
