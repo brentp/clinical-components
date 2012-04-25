@@ -49,8 +49,8 @@ def readX(fX, transpose, n=1, nan_value=0):
         try:
             vals = map(float, toks[n:])
         except ValueError:
-            vals = [float(t) if not t in ("NA", "na") else nan_value 
-                       for t in toks[n:]]
+            vals = [float(t) if not t in ("NA", "na", "") else nan_value 
+                                       for t in toks[n:]]
         X.append(np.array(vals))
     X = np.array(X)
     if transpose:
@@ -203,10 +203,6 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
     plt.savefig(fig_name)
 
-    plt.figure()
-    plt.imshow(components, aspect='auto', interpolation='none')
-    plt.savefig('i.png')
-
 
 def print_correlations(components, clinical, evr):
     n_tests = min(10, components.shape[1]) * (len(clinical.columns) - 1)
@@ -266,7 +262,7 @@ def main():
                  help="method to use for transformation.",
                  default="RandomizedPCA")
     p.add_argument("-f", dest="fig_name", help="path to save figure")
-    p.add_argument("-n", dest="nan", help="value to use instead of nan",
+    p.add_argument("--nan", help="value to use instead of nan",
             default=0.0, type=float)
 
     args = p.parse_args()
