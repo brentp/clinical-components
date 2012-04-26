@@ -50,7 +50,7 @@ def readX(fX, transpose, n=1, nan_value=0):
         try:
             vals = map(float, toks[n:])
         except ValueError:
-            vals = [float(t) if not t in ("NA", "na", "") else nan_value 
+            vals = [float(t) if not t in ("NA", "na", "") else nan_value
                                        for t in toks[n:]]
         X.append(np.array(vals))
     X = np.array(X)
@@ -248,7 +248,7 @@ def main():
                  help="method to use for transformation.",
                  default="RandomizedPCA")
     p.add_argument("-f", dest="fig_name", help="path to save figure")
-    p.add_argument("--nan", help="value to use instead of nan",
+    p.add_argument("--na", help="value to use instead of nan",
             default=0.0, type=float)
 
     args = p.parse_args()
@@ -256,7 +256,7 @@ def main():
         sys.exit(not p.print_help())
 
     run(args.X, args.clinical, args.key.rstrip().split(","), args.fig_name,
-        CLASSES[args.method], args.nan, args.label, args.transpose)
+        CLASSES[args.method], args.na, args.label, args.transpose)
 
 if __name__ == "__main__":
     import doctest
