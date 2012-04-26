@@ -119,11 +119,11 @@ def run(clin, col_name=None, cutoff=0.05):
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                    formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("-c", dest="clinical", help="clinical data file.")
     p.add_argument("--na", help="addition comma-separated tokens to count as na",
             default="")
     p.add_argument("--column",
             help="do correlations of all variables with this column")
+    p.add_argument("clinical", help="clinical data file.")
 
     args = p.parse_args()
     if (None in (args.clinical, )):
