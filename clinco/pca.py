@@ -1,4 +1,5 @@
 import sys
+import os
 import argparse
 from itertools import cycle, izip
 import matplotlib
@@ -6,6 +7,9 @@ from toolshed import reader
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 matplotlib.use('Agg')
+import pandas as pa
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 from dateutil.parser import parse as date_parse
 
@@ -16,8 +20,6 @@ from sklearn.decomposition import PCA, RandomizedPCA, ProbabilisticPCA, \
 
 from sklearn.manifold import Isomap, LocallyLinearEmbedding
 from sklearn.lda import LDA
-
-from scipy.stats import linregress, f_oneway
 
 CLASSES = {
     "PCA": PCA,
@@ -70,7 +72,6 @@ def read_clinical(fclinical, na_values=None):
     """
     read the clinical data and try to guess the types
     """
-    import pandas as pa
     if na_values is None:
         na_values = []
 
@@ -190,45 +191,32 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
 
 def print_correlations(components, clinical, evr):
+    from clincorr import compare
     n_tests = min(10, components.shape[1]) * (len(clinical.columns) - 1)
     print >>sys.stderr, "n-tests:", n_tests
-
-    print "pc_num\tvariance_explained\tclinical_variable\tn\tR\tanova_groups\tp_value\tbonf_p"
+    tmpl = "%(pc_num)s\t%(variance_explained)s\t%(clinical_variable)s\t%(n)s\t%(correlation)s\t%(anova_groups)s\t%(p)s\t%(adj_p)s\t%(clinical_type)s"
+    print tmpl.replace("%(", "").replace(")s", "")
     for i in range(min(10, components.shape[1])):
         j = i + 1
         for column in clinical.columns[1:]:
             clin = clinical[column]
-            x = np.array(clin[clin.notnull()])
-            y = components[clin.notnull(), i]
-            #if not x.dtype in (np.float64, np.float, np.float32, np.int, np.datetime_):
+            #x = np.array(clin[clin.notnull()])
+            y = components[:, i]
 
-            if x.dtype == object and not hasattr(x[0], "date"):
-                xu = sorted(np.unique(x))
-                if len(xu) > 20: continue # too many classes for anova
-                a = [[] for _ in xu]
-                # if it's a string class, do anova to get the p-value
-                for xx, yy in zip(x, y):
-                    idx = xu.index(xx)
-                    a[idx].append(yy)
-                f, p_value = f_oneway(*[aa for aa in a if len(aa) > 0])
-                R = "na"
-                aov = "%i-groups" % len(a)
+            d = compare(clin, pa.Series(y))
+            d['pc_num'] = j
+            d['variance_explained'] = "%.3f" % evr[i]
 
-                #x = np.array([xu.index(xi) for xi in x], dtype='float')
-            else:
-                if hasattr(x[0], "date"):
-                    x = np.array(x, dtype=np.datetime64).astype(int)
-                slope, intercept, r_value, p_value, std_err = linregress(x, y)
-                R = "%.3f" % r_value
-                aov = "na"
+            if d['p'] > 0.1 or np.isnan(d['p']): continue
+            #print d
 
-            if p_value > 0.1 or np.isnan(p_value): continue
-            adj_p = "%.3g" % min(1, (p_value * n_tests))
-            p_value = "%.3g" % p_value
-            n = len(y)
-            evr_j = "%.3f" % evr[i]
-            print "%(j)i\t%(evr_j)s\t%(column)s\t%(n)i\t%(R)s\t%(aov)s\t%(p_value)s\t%(adj_p)s" % \
-                locals()
+            d['adj_p'] = "%.3g" % min(1, (d['p'] * n_tests))
+            d['p'] = "%.3g" % d['p']
+            if 'na' != d['correlation']:
+                d['correlation'] = '%.3g' % d['correlation']
+            d['clinical_variable'] = clin.name
+            d['clinical_type'] = d['atype']
+            print tmpl % d
 
 
 def main():
