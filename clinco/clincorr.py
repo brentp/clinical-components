@@ -60,7 +60,10 @@ def _group_anova(acol, bcol):
 def compare(cola, colb):
     d = dict.fromkeys("correlation p n anova_groups atype btype".split(), "na")
 
-    acat, bcat = is_categorical(cola[cola.notnull()]), is_categorical(colb[colb.notnull()])
+    try:
+        acat, bcat = is_categorical(cola[cola.notnull()]), is_categorical(colb[colb.notnull()])
+    except ValueError:
+        return d
     a = cola[cola.notnull() & colb.notnull()]
     b = colb[cola.notnull() & colb.notnull()]
 
@@ -121,6 +124,8 @@ def main():
                    formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--na", help="addition comma-separated tokens to count as na",
             default="")
+    p.add_argument("--cutoff", help="only show assocations with a p-value below \
+                    cutoff. default: %(default)s", type=float, default=0.05)
     p.add_argument("--column",
             help="do correlations of all variables with this column")
     p.add_argument("clinical", help="clinical data file.")
@@ -130,7 +135,7 @@ def main():
         sys.exit(not p.print_help())
 
     clin = read_clinical(args.clinical, args.na.split(","))
-    run(clin, args.column)
+    run(clin, args.column, args.cutoff)
 
 
 if __name__ == "__main__":
