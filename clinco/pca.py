@@ -177,7 +177,6 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
     exr = clf.explained_variance_ratio_
     labels = [("(%.1f" % (100. * e)) + "%)" for e in exr[:3]]
-    print labels
     plt.xlabel('component 1 ' + labels[0])
     plt.ylabel('component 2 ' + labels[1])
     ax.set_zlabel('component 3 ' + labels[2])
