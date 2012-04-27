@@ -3,10 +3,10 @@ import os
 import argparse
 from itertools import cycle, izip
 import matplotlib
+matplotlib.use('Agg')
 from toolshed import reader
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
-matplotlib.use('Agg')
 import pandas as pa
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -90,13 +90,18 @@ def _clinical_to_ys(clinical1):
     return classes, np.array([classes.index(c) if c in classes else np.nan for c in clinical1]) # if not np.isnan(c)])
 
 def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
-        label_key=None, transpose=False):
+        label_key=None, transpose=False, id_col=None):
 
     clinical = read_clinical(fclinical)
+    clin_col = clinical[clinical.columns[0]] if id_col is None else clinical[id_col]
+    clinical = clinical[clin_col.notnull()]
+    clin_col = clin_col[clin_col.notnull()]
+    ci = map(str, clinical[clinical.columns[0]])
+    #print >>sys.stderr, ci
+
     X_ids, X_probes, X = readX(fX, transpose, nan_value=nan_value)
     assert X.shape[1] == len(X_ids), (X.shape, len(X_ids), len(X_probes))
 
-    ci = map(str, list(clinical[clinical.columns[0]]))
     X_out = [xi for xi in X_ids if not xi in ci]
     if X_out:
         X = X[:, [i for i, xi in enumerate(X_ids) if xi in ci]]
@@ -109,8 +114,10 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     clinical = clinical.irow([ci.index(xi) for xi in X_ids if not xi in X_out])
     print >>sys.stderr, clinical.shape, "clinical after removed"
 
-    assert all(X_id == str(c_id) for X_id, c_id in
-               zip(X_ids, clinical[clinical.columns[0]])), "IDS don't match!"
+    ci = map(str, clinical[clinical.columns[0]])
+    #assert all(X_id == str(c_id) for X_id, c_id in
+    #           zip(X_ids, clin_col)), ("IDS don't match!", zip(X_ids,
+    #               clin_col))
     if False: # example filtering
         #p = np.array([c["diagmin"] == "IPF" for c in
         p = np.array([c["diagmaj"] == "control" or c["diagmin"] == "IPF" for c in
@@ -135,7 +142,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     else:
         clf = klass(20).fit(X)
     X_r = clf.transform(X)
-    print >>sys.stderr, "X_r", X_r.shape
+    print >>sys.stderr, "X_r", X_r.shape, len(ci)
 
     components = X_r
     assert len(clf.explained_variance_ratio_ == clinical.shape[0])
@@ -188,6 +195,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     print_correlations(components, clinical, clf.explained_variance_ratio_)
 
     plt.savefig(fig_name)
+    return clinical, components
 
 
 def print_correlations(components, clinical, evr):
@@ -218,6 +226,20 @@ def print_correlations(components, clinical, evr):
             d['clinical_type'] = d['atype']
             print tmpl % d
 
+def save_pcs(clinical, components, fname, column_id):
+
+    assert clinical.shape[0] == components.shape[0]
+    col_name = column_id or clinical.columns[0]
+
+    id_col = list(clinical[col_name])
+    with open(fname, 'w') as out:
+
+        print >> out, "\t".join([col_name] +
+                ["pc%i" % pc for pc in range(1, components.shape[1] + 1)])
+        for i, pcs in enumerate(components): 
+            print >>sys.stderr, pcs.shape
+            print >>out, "\t".join([id_col[i]] + \
+                    ["%.4g" % pc for pc in pcs])
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
@@ -234,16 +256,24 @@ def main():
     p.add_argument("-m", dest="method", choices=CLASSES.keys(),
                  help="method to use for transformation.",
                  default="RandomizedPCA")
-    p.add_argument("-f", dest="fig_name", help="path to save figure")
+    p.add_argument("-f", "--image", dest="fig_name", help="path to save figure")
+    p.add_argument("--save_pcs", help="save principal components to this file")
     p.add_argument("--na", help="value to use instead of nan",
             default=0.0, type=float)
+    p.add_argument("--id", help="id column in clinical data. default is first \
+            column")
 
     args = p.parse_args()
     if (None in (args.X, args.clinical, args.key, args.fig_name)):
         sys.exit(not p.print_help())
 
-    run(args.X, args.clinical, args.key.rstrip().split(","), args.fig_name,
-        CLASSES[args.method], args.na, args.label, args.transpose)
+    clin, components = run(args.X, args.clinical, args.key.rstrip().split(","),
+            args.fig_name, CLASSES[args.method], args.na, args.label,
+            args.transpose, args.id)
+
+    if args.save_pcs:
+        save_pcs(clin, components, args.save_pcs, args.id)
+        print >>sys.stderr, "saved principal components to %s" % args.save_pcs
 
 if __name__ == "__main__":
     import doctest
