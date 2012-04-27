@@ -64,8 +64,8 @@ def compare(cola, colb):
         acat, bcat = is_categorical(cola[cola.notnull()]), is_categorical(colb[colb.notnull()])
     except ValueError:
         return d
-    a = cola[cola.notnull() & colb.notnull()]
-    b = colb[cola.notnull() & colb.notnull()]
+    a = np.array(cola[np.array(cola.notnull() & colb.notnull())])
+    b = np.array(colb[np.array(cola.notnull() & colb.notnull())])
 
     l = ['numeric', 'categorical']
     d['atype'] = l[int(acat)]
