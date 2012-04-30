@@ -91,13 +91,15 @@ def _clinical_to_ys(clinical1):
 
 def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
         label_key=None, transpose=False, id_col=None):
-
     clinical = read_clinical(fclinical)
-    clin_col = clinical[clinical.columns[0]] if id_col is None else clinical[id_col]
+    if id_col is None:
+        id_col = clinical.columns[0]
+
+    clin_col = clinical[id_col]
     clinical = clinical[clin_col.notnull()]
     clin_col = clin_col[clin_col.notnull()]
-    ci = map(str, clinical[clinical.columns[0]])
-    #print >>sys.stderr, ci
+    #ci = clinical[clinical.columns[0]] if id_col is None else clinical[id_col]
+    ci = map(str, clin_col)
 
     X_ids, X_probes, X = readX(fX, transpose, nan_value=nan_value)
     assert X.shape[1] == len(X_ids), (X.shape, len(X_ids), len(X_probes))
@@ -114,7 +116,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     clinical = clinical.irow([ci.index(xi) for xi in X_ids if not xi in X_out])
     print >>sys.stderr, clinical.shape, "clinical after removed"
 
-    ci = map(str, clinical[clinical.columns[0]])
+    ci = map(str, clinical[id_col])
     #assert all(X_id == str(c_id) for X_id, c_id in
     #           zip(X_ids, clin_col)), ("IDS don't match!", zip(X_ids,
     #               clin_col))
@@ -237,8 +239,7 @@ def save_pcs(clinical, components, fname, column_id):
         print >> out, "\t".join([col_name] +
                 ["pc%i" % pc for pc in range(1, components.shape[1] + 1)])
         for i, pcs in enumerate(components): 
-            print >>sys.stderr, pcs.shape
-            print >>out, "\t".join([id_col[i]] + \
+            print >>out, "\t".join([str(id_col[i])] + \
                     ["%.4g" % pc for pc in pcs])
 
 def main():
