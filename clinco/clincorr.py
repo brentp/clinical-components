@@ -90,8 +90,8 @@ def compare(cola, colb):
 
     # both categorical...
     else:
-        dsub = pa.DataFrame({a.name:a, b.name: b})
-        summ = np.array(dsub.groupby(by=[a.name, b.name]).size().unstack(b.name))
+        dsub = pa.DataFrame({cola.name:a, colb.name: b})
+        summ = np.array(dsub.groupby(by=[cola.name, colb.name]).size().unstack(colb.name))
         summ[np.isnan(summ)] = 0
         chi2, p, dof, ex = chi2_contingency(summ)    
         d['anova_groups'] = 'chi-sq:' + ",".join(map(str, summ.shape))
