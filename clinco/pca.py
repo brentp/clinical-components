@@ -112,6 +112,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
     print >>sys.stderr, X.shape, "after removed"
     X = X.T
+
     X_ids = np.array([xi for xi in X_ids if xi in ci])
     clinical = clinical.irow([ci.index(xi) for xi in X_ids if not xi in X_out])
     print >>sys.stderr, clinical.shape, "clinical after removed"
@@ -160,7 +161,7 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
     for i, (color, yclass) in list(enumerate(zip(cycle("rgbckym"), yclasses))):
         try:
             if np.isnan(yclass): continue
-        except NotImplementedError:
+        except (NotImplementedError, TypeError):
             pass
         if isinstance(yclass, np.floating):
             p = y == i
@@ -182,8 +183,8 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
         #plt.scatter(xs, ys, c=color, s=6, label=yclass)
         if label_key is not None and i == 0:
             labels = clinical[label_key][p]
-            for xx, yy, label in izip(xs, ys, labels):
-                plt.text(xx, yy, label, color=color, fontsize=6, multialignment='right')
+            for xx, yy, zz, label in izip(xs, ys, zs, labels):
+                ax.text(xx, yy, zz, label, color=color, fontsize=6, multialignment='right')
 
     exr = clf.explained_variance_ratio_
     labels = [("(%.1f" % (100. * e)) + "%)" for e in exr[:3]]
