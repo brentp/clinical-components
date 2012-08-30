@@ -162,6 +162,8 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
             if np.isnan(yclass): continue
         except NotImplementedError:
             pass
+        except TypeError:
+            pass
         if isinstance(yclass, np.floating):
             p = y == i
             color = 1. / (len(yclasses) + 1) * (i + 1)
@@ -193,6 +195,8 @@ def run(fX, fclinical, header_keys, fig_name, klass, nan_value=0,
 
     plt.title(header_key)
     leg = plt.legend(proxies, yclasses, scatterpoints=1, loc='upper left')
+    ltext  = leg.get_texts()
+    plt.setp(ltext, fontsize='small')
 
     print_correlations(components, clinical, clf.explained_variance_ratio_)
 
