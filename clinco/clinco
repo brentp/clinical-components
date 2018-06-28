@@ -12,6 +12,9 @@ View and find correlations in your clinical and lab data.
 
 To run, indicate one of:
 
+    clincorr
+    pca
+
 SEE: https://github.com/brentp/clinical-components for documentation
     """
         sys.exit()
